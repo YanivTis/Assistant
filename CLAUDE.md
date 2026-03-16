@@ -66,6 +66,9 @@ You (Phone / WhatsApp)
 Assistant/
 ├── CLAUDE.md                  # ← you are here
 ├── main.py                    # Entry point — starts Flask server
+├── Dockerfile                 # Container image definition
+├── docker-compose.yml         # One-command deployment
+├── .dockerignore
 ├── requirements.txt
 ├── .env.example               # Required env vars
 ├── .gitignore
@@ -140,8 +143,36 @@ cp .env.example .env
 python main.py
 
 # Production
-gunicorn -w 1 -b 0.0.0.0:8080 bot.whatsapp_bot:app
+gunicorn -w 1 -b 0.0.0.0:8080 --timeout 120 bot.whatsapp_bot:app
 ```
+
+### Docker Deployment
+
+```bash
+# Build and run with docker-compose
+cp .env.example .env
+# Fill in .env values
+docker compose up -d
+
+# Or build and run manually
+docker build -t whatsapp-assistant .
+docker run -d \
+  --name whatsapp-assistant \
+  --env-file .env \
+  -e DB_PATH=/data/assistant.db \
+  -v assistant-data:/data \
+  -p 8080:8080 \
+  --restart unless-stopped \
+  whatsapp-assistant
+
+# View logs
+docker compose logs -f assistant
+
+# Rebuild after code changes
+docker compose up -d --build
+```
+
+The SQLite database is stored in a Docker volume (`assistant-data`) so data persists across container restarts and rebuilds.
 
 ---
 
