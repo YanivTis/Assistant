@@ -1,6 +1,7 @@
 """
-Tool registry — all Claude-callable tools in one place.
-Import TOOLS for the schema list, call dispatch(name, inputs) to execute.
+Tool registry — all AI-callable tools in one place.
+Import TOOLS (Anthropic format) or OPENAI_TOOLS (OpenAI format) for schemas.
+Call dispatch(name, inputs) to execute.
 """
 
 from tools.todo_manager import (
@@ -9,7 +10,7 @@ from tools.todo_manager import (
 )
 from tools.recommendation import get_recommendations
 
-# ── Tool schemas (what Claude sees) ──────────────────────────────────────────
+# ── Tool schemas (Anthropic / Claude format) ─────────────────────────────────
 
 TOOLS = [
     {
@@ -148,10 +149,25 @@ TOOLS = [
 ]
 
 
+# ── OpenAI function-calling format ────────────────────────────────────────────
+
+OPENAI_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["input_schema"],
+        },
+    }
+    for t in TOOLS
+]
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
 def dispatch(tool_name: str, tool_input: dict, user_id: str) -> str:
-    """Route a Claude tool call to the right Python function. Returns a string result."""
+    """Route a tool call to the right Python function. Returns a string result."""
     try:
         match tool_name:
             case "add_todo":

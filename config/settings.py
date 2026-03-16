@@ -13,9 +13,16 @@ class Settings:
         n.strip() for n in os.getenv("WHATSAPP_ALLOWED_NUMBERS", "").split(",") if n.strip()
     ]
 
+    # AI Provider — "anthropic" or "openai"
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "anthropic")
+
     # Claude / Anthropic
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+
+    # OpenAI
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
 
     # Database
     DB_PATH: str = os.getenv("DB_PATH", "./assistant.db")

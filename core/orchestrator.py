@@ -1,14 +1,16 @@
 """
-The Claude API tool-use loop.
-Takes a user message + conversation history, runs Claude with tools,
-dispatches tool calls, loops until Claude returns a final text response.
+AI tool-use loop supporting both Anthropic (Claude) and OpenAI providers.
+Takes a user message + conversation history, runs the model with tools,
+dispatches tool calls, loops until the model returns a final text response.
 """
 
-import anthropic
-from config.settings import settings
-from tools import TOOLS, dispatch
+import json
+import logging
 
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+from config.settings import settings
+from tools import TOOLS, OPENAI_TOOLS, dispatch
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a personal assistant chatbot on WhatsApp. You help the user manage their to-do list, stay organized, and recommend what to focus on next.
 
@@ -35,10 +37,13 @@ Rules:
 """
 
 
-def run(user_message: str, history: list[dict], user_id: str) -> str:
-    """
-    Synchronous Claude tool-use loop for a single user turn.
-    """
+# ── Provider implementations ─────────────────────────────────────────────────
+
+
+def _run_anthropic(user_message: str, history: list[dict], user_id: str) -> str:
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     messages = history + [{"role": "user", "content": user_message}]
 
     while True:
@@ -64,9 +69,68 @@ def run(user_message: str, history: list[dict], user_id: str) -> str:
                     })
 
             messages.append({"role": "user", "content": tool_results})
-
         else:
             for block in response.content:
                 if hasattr(block, "text"):
                     return block.text
             return "(no response)"
+
+
+def _run_openai(user_message: str, history: list[dict], user_id: str) -> str:
+    from openai import OpenAI
+
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    # Convert Anthropic-style history to OpenAI format
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for msg in history:
+        role = msg["role"]
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            messages.append({"role": role, "content": content})
+        # Skip non-string content blocks (tool results in Anthropic format)
+        # — they are re-created by the OpenAI loop below
+
+    messages.append({"role": "user", "content": user_message})
+
+    while True:
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=messages,
+            tools=OPENAI_TOOLS,
+        )
+
+        choice = response.choices[0]
+
+        if choice.finish_reason == "tool_calls":
+            # Append the assistant message with tool calls
+            messages.append(choice.message)
+
+            for tool_call in choice.message.tool_calls:
+                fn_name = tool_call.function.name
+                fn_args = json.loads(tool_call.function.arguments)
+                result = dispatch(fn_name, fn_args, user_id=user_id)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(result),
+                })
+        else:
+            return choice.message.content or "(no response)"
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+
+
+def run(user_message: str, history: list[dict], user_id: str) -> str:
+    """
+    Synchronous tool-use loop for a single user turn.
+    Routes to Anthropic or OpenAI based on AI_PROVIDER setting.
+    """
+    provider = settings.AI_PROVIDER.lower()
+    logger.info(f"Using AI provider: {provider}")
+
+    if provider == "openai":
+        return _run_openai(user_message, history, user_id)
+    else:
+        return _run_anthropic(user_message, history, user_id)
