@@ -12,6 +12,7 @@ Inspired by the **AgentOfAgents** project architecture (Discord orchestrator), a
 - Flask webhook server for Meta WhatsApp Business Cloud API
 - Claude API tool-use loop (multi-turn, tools dispatch)
 - To-do management tools (add, list, complete, update, delete, priority, due dates)
+- Notion integration (notes, to-do checklist, search)
 - Recommendation engine (analyzes to-dos, suggests next actions)
 - SQLite persistence (to-dos, conversation history)
 - Per-user scoping (multiple WhatsApp users supported)
@@ -34,6 +35,7 @@ You (Phone / WhatsApp)
         ▼
   Tool Registry (tools/)
         ├── todo_manager.py     # CRUD for to-do items
+        ├── notion_manager.py   # Notion notes & todo sync
         └── recommendation.py   # Smart prioritization advice
         │
         ▼
@@ -81,6 +83,7 @@ Assistant/
 ├── tools/
 │   ├── __init__.py            # Tool registry — exports TOOLS + dispatch()
 │   ├── todo_manager.py        # To-do CRUD operations
+│   ├── notion_manager.py      # Notion notes & to-do sync
 │   └── recommendation.py      # Priority analysis and path-forward advice
 ├── bot/
 │   ├── __init__.py
@@ -101,6 +104,11 @@ WHATSAPP_ACCESS_TOKEN=your_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 WHATSAPP_ALLOWED_NUMBERS=1234567890
 ANTHROPIC_API_KEY=your_api_key
+
+# Notion (optional — enables notes & organized todo checklist)
+NOTION_API_KEY=your_notion_integration_token
+NOTION_NOTES_PAGE_ID=your_notes_page_id
+NOTION_TODOS_DB_ID=your_todos_database_id
 
 # Optional
 CLAUDE_MODEL=claude-sonnet-4-20250514
@@ -126,6 +134,10 @@ MAX_HISTORY=30
 | set_due_date        | Set or clear a due date                               |
 | get_todo_summary    | Statistics: counts by status, priority, overdue items |
 | get_recommendations | Analyze to-dos and recommend what to focus on next    |
+| create_note         | Create a new note page in Notion                      |
+| append_note         | Append content to an existing Notion note              |
+| search_notes        | Search Notion notes by title                           |
+| add_notion_todo     | Add a to-do to the Notion checklist database           |
 
 ---
 
@@ -193,11 +205,36 @@ The SQLite database is stored in a Docker volume (`assistant-data`) so data pers
 
 ---
 
+## Notion Setup (one-time)
+
+1. Go to https://www.notion.so/my-integrations and create a new integration
+   - Name it something like "WhatsApp Assistant"
+   - Copy the **Internal Integration Secret** → `NOTION_API_KEY`
+2. Create a **Notes** page in Notion (this is where sub-pages will be created for each note)
+   - Open the page, click "..." → "Connect to" → select your integration
+   - Copy the page ID from the URL (the 32-char hex string after the page name) → `NOTION_NOTES_PAGE_ID`
+3. Create a **Todos** database in Notion with these columns:
+   - **Name** (title) — the to-do title
+   - **Status** (checkbox) — done or not
+   - **Priority** (select) — Low, Medium, High, Urgent
+   - **Category** (select) — user-defined tags
+   - **Due Date** (date) — optional deadline
+   - Click "..." → "Connect to" → select your integration
+   - Copy the database ID from the URL → `NOTION_TODOS_DB_ID`
+4. Add all three values to your `.env` file
+
+**Finding IDs from URLs:**
+- Page URL: `https://www.notion.so/My-Notes-abc123def456...` → the `abc123def456...` part is the ID
+- Database URL: same pattern — the 32-char hex string is the ID (add hyphens or use as-is, both work)
+
+---
+
 ## Phases Roadmap
 
 ### ✅ Phase 1 — Core Loop (done)
 - Flask webhook ↔ Claude ↔ tools pipeline
 - To-do CRUD (add, list, complete, update, delete, priority, due dates)
+- Notion integration (notes, to-do sync, search)
 - Recommendation engine
 - Conversation history persistence
 - Per-user to-do scoping

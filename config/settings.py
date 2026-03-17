@@ -24,6 +24,11 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
 
+    # Notion
+    NOTION_API_KEY: str = os.getenv("NOTION_API_KEY", "")
+    NOTION_NOTES_PAGE_ID: str = os.getenv("NOTION_NOTES_PAGE_ID", "")
+    NOTION_TODOS_DB_ID: str = os.getenv("NOTION_TODOS_DB_ID", "")
+
     # Database
     DB_PATH: str = os.getenv("DB_PATH", "./assistant.db")
 

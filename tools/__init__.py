@@ -9,6 +9,9 @@ from tools.todo_manager import (
     delete_todo, set_priority, set_due_date, get_todo_summary
 )
 from tools.recommendation import get_recommendations
+from tools.notion_manager import (
+    create_note, append_note, search_notes, add_notion_todo
+)
 
 # ── Tool schemas (Anthropic / Claude format) ─────────────────────────────────
 
@@ -132,6 +135,60 @@ TOOLS = [
             "required": []
         }
     },
+    # ── Notion tools ──
+    {
+        "name": "create_note",
+        "description": "Create a new note in Notion. Use this when the user shares thoughts, ideas, meeting notes, or anything worth saving for later reference.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "A short descriptive title for the note"},
+                "content": {"type": "string", "description": "The note content. Use double newlines to separate paragraphs."}
+            },
+            "required": ["title", "content"]
+        }
+    },
+    {
+        "name": "append_note",
+        "description": "Append content to an existing Notion note. Use when the user wants to add more to a previous note.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "page_id": {"type": "string", "description": "The Notion page ID to append to (from search_notes)"},
+                "content": {"type": "string", "description": "Content to append"}
+            },
+            "required": ["page_id", "content"]
+        }
+    },
+    {
+        "name": "search_notes",
+        "description": "Search for existing notes in Notion by title. Use this to find a note before appending to it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query to match against note titles"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "add_notion_todo",
+        "description": "Add a to-do item to the Notion checklist database. Use this alongside add_todo so the user has their to-dos in both WhatsApp (for quick access) and Notion (for organized viewing).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Short title for the to-do"},
+                "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "urgent"],
+                    "description": "Priority level (default: medium)"
+                },
+                "due_date": {"type": "string", "description": "Optional due date in YYYY-MM-DD format"},
+                "category": {"type": "string", "description": "Optional category/tag"}
+            },
+            "required": ["title"]
+        }
+    },
     {
         "name": "get_recommendations",
         "description": "Analyze the user's current to-dos, priorities, and deadlines to recommend which tasks to focus on next and suggest a path forward. Call this when the user asks for advice on what to do next, or when they seem overwhelmed.",
@@ -188,6 +245,14 @@ def dispatch(tool_name: str, tool_input: dict, user_id: str) -> str:
                 return get_todo_summary(user_id=user_id)
             case "get_recommendations":
                 return get_recommendations(user_id=user_id, **tool_input)
+            case "create_note":
+                return create_note(user_id=user_id, **tool_input)
+            case "append_note":
+                return append_note(user_id=user_id, **tool_input)
+            case "search_notes":
+                return search_notes(user_id=user_id, **tool_input)
+            case "add_notion_todo":
+                return add_notion_todo(user_id=user_id, **tool_input)
             case _:
                 return f"Error: unknown tool '{tool_name}'"
     except Exception as e:
